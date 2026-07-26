@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb';
-// pdf-parse's index.js runs a debug self-test when imported as an entry; import the lib directly
-import pdfParse from 'pdf-parse/lib/pdf-parse.js';
+import { PDFParse } from 'pdf-parse';
 import { makeRedis, popJob, setJobStatus, type IngestJob } from '../lib/queue';
 import { getCollections, loadPdf, deleteChunksFor } from '../lib/mongo';
 import { splitIntoChunks } from '../lib/chunk';
@@ -14,8 +13,13 @@ function depsFor(job: IngestJob): JobDeps {
     setStatus: (status, extra) => setJobStatus(redis, job.jobId, status, extra),
     loadPdf,
     parsePdf: async (buffer) => {
-      const parsed = await pdfParse(buffer);
-      return { text: parsed.text, pageCount: parsed.numpages };
+      const parser = new PDFParse({ data: buffer });
+      try {
+        const parsed = await parser.getText();
+        return { text: parsed.text, pageCount: parsed.total };
+      } finally {
+        await parser.destroy();
+      }
     },
     chunk: splitIntoChunks,
     embed: embedTexts,

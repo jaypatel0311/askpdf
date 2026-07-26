@@ -10,8 +10,8 @@ function ai(): GoogleGenAI {
   return (client ??= new GoogleGenAI({ apiKey }));
 }
 
-const embeddingModel = () => process.env.EMBEDDING_MODEL ?? 'text-embedding-004';
-const chatModel = () => process.env.CHAT_MODEL ?? 'gemini-2.5-flash';
+const embeddingModel = () => process.env.EMBEDDING_MODEL ?? 'gemini-embedding-001';
+const chatModel = () => process.env.CHAT_MODEL ?? 'gemini-flash-latest';
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const vectors: number[][] = [];
