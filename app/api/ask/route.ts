@@ -1,4 +1,4 @@
-import { retrieveChunks, passesThreshold } from '@/lib/retrieval';
+import { retrieveChunks, passesThreshold, isSummaryQuestion, getChunksInOrder } from '@/lib/retrieval';
 import { buildPrompt } from '@/lib/prompt';
 import { streamAnswer } from '@/lib/gemini';
 
@@ -10,7 +10,12 @@ export async function POST(req: Request) {
     return Response.json({ error: 'question and documentId required' }, { status: 400 });
   }
 
-  const results = await retrieveChunks(question, documentId);
+  // "What is this about?"-style questions aren't similar to any single chunk, so the
+  // threshold would wrongly refuse them; answer from the document's leading chunks instead.
+  const summary = isSummaryQuestion(question);
+  const results = summary
+    ? await getChunksInOrder(documentId)
+    : await retrieveChunks(question, documentId);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -18,7 +23,7 @@ export async function POST(req: Request) {
       const send = (data: object) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       try {
-        if (!passesThreshold(results)) {
+        if (summary ? results.length === 0 : !passesThreshold(results)) {
           // Hallucination guard layer 1: refuse before the LLM is ever called
           send({ token: REFUSAL });
           send({ done: true, refused: true });
